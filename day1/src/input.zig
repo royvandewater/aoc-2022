@@ -1,10 +1,28 @@
 const std = @import("std");
 
 const Elf = std.ArrayList(usize);
+const ElfSlice = []usize;
 
 const Input = struct {
-    allocator: std.mem.Allocator,
     elves: std.ArrayList(Elf),
+
+    pub fn fromOwnedSlice(allocator: std.mem.Allocator, slice: []ElfSlice) !Input {
+        var elves = try std.ArrayList(Elf).initCapacity(allocator, slice.len);
+
+        for (slice) |item| {
+            var elf = try Elf.initCapacity(allocator, item.len);
+
+            for (item) |val| {
+                try elf.append(val);
+            }
+
+            try elves.append(elf);
+        }
+
+        return Input {
+            .elves = try reverseList(Elf, &elves),
+        };
+    }
 
     pub fn len(self: Input) usize {
         return self.elves.items.len;
@@ -42,7 +60,6 @@ pub fn parseInput(allocator: std.mem.Allocator, reader: anytype) !Input {
     try elves.append(elf);
 
     return Input{
-        .allocator = allocator,
         .elves = try reverseList(Elf, &elves),
     };
 }
@@ -99,4 +116,27 @@ test "parse two elves" {
 
     try expect(null == input.next());
 
+}
+
+test "using fromOwnedSlice" {
+    var input_elf_1 = [_]usize{1};
+    var input_elf_2 = [_]usize{2, 3};
+
+    var input = try Input.fromOwnedSlice(test_allocator, &[_]ElfSlice{
+        &input_elf_1,
+        &input_elf_2,
+    });
+    defer input.deinit();
+
+    try expect(2 == input.len());
+
+    const elf_1 = input.next().?;
+    defer elf_1.deinit();
+    try expect(std.mem.eql(usize, elf_1.items, &[_]usize{1}));
+
+    const elf_2 = input.next().?;
+    defer elf_2.deinit();
+    try expect(std.mem.eql(usize, elf_2.items, &[_]usize{2, 3}));
+
+    try expect(null == input.next());
 }
