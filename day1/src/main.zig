@@ -14,7 +14,7 @@ pub fn main() !void {
     var out_stream = std.io.bufferedWriter(stdout_file);
     const stdout = out_stream.writer();
 
-    const input = input_parser.parseInput(allocator, in_stream);
+    const input = try input_parser.parseInput(allocator, in_stream);
     try stdout.print("Hello World! {d}\n", .{input.len()});
 
     try out_stream.flush();
