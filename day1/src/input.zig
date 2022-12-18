@@ -1,14 +1,20 @@
 const std = @import("std");
 
+const Elf = std.ArrayList(usize);
+
 const Input = struct {
-    pub fn len(self: Input) u8 {
-        _ = self;
-        return 0;
+    elves: std.ArrayList(Elf),
+
+    pub fn len(self: Input) usize {
+        return self.elves.items.len;
     }
 };
 
 // pub fn parseInput(comptime Reader: type) !void {
-pub fn parseInput(reader: anytype) Input {
+pub fn parseInput(allocator: std.mem.Allocator, reader: anytype) Input {
     _ = reader;
-    return Input{};
+
+    return Input{
+        .elves = std.ArrayList(Elf).init(allocator),
+    };
 }
