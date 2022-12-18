@@ -132,11 +132,11 @@ test "using fromOwnedSlice" {
 
     const elf_1 = input.next().?;
     defer elf_1.deinit();
-    try expect(std.mem.eql(usize, elf_1.items, &[_]usize{1}));
+    try expect(std.mem.eql(usize, elf_1.items, &input_elf_1));
 
     const elf_2 = input.next().?;
     defer elf_2.deinit();
-    try expect(std.mem.eql(usize, elf_2.items, &[_]usize{2, 3}));
+    try expect(std.mem.eql(usize, elf_2.items, &input_elf_2));
 
     try expect(null == input.next());
 }
