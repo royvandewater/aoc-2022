@@ -29,6 +29,14 @@ pub fn build(b: *std.build.Builder) void {
     exe_tests.setTarget(target);
     exe_tests.setBuildMode(mode);
 
+    const input_tests = b.addTest("src/input.zig");
+    input_tests.setTarget(target);
+    input_tests.setBuildMode(mode);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);
+    test_step.dependOn(&input_tests.step);
+
+    const test_input_step = b.step("test:input", "Run input unit tests");
+    test_input_step.dependOn(&input_tests.step);
 }
