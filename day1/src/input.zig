@@ -45,7 +45,7 @@ pub const Input = struct {
         return self.elves.len;
     }
 
-    pub fn deinit(self: *Input) void {
+    pub fn deinit(self: Input) void {
         for (self.elves) |elf| {
             self.allocator.free(elf);
         }

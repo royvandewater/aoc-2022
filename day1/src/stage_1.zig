@@ -2,22 +2,28 @@ const std = @import("std");
 const Input = @import("./input.zig").Input;
 
 const Elf = struct {
-    items: std.ArrayList(usize),
+    allocator: std.mem.Allocator,
+    items: []usize,
 
-    pub fn init(items: *std.ArrayList(usize)) !Elf {
+    pub fn init(allocator: std.mem.Allocator, slice: []usize) !Elf {
+        var items = try allocator.alloc(usize, slice.len);
+
+        std.mem.copy(usize, items, slice);
+
         return Elf {
-            .items = try items.clone(),
+            .allocator = allocator,
+            .items = items,
         };
     }
 
-    pub fn deinit(self: *Elf) void {
-        self.items.deinit();
+    pub fn deinit(self: Elf) void {
+        self.allocator.free(self.items);
     }
 
-    pub fn sum(self: *Elf) usize {
+    pub fn sum(self: Elf) usize {
         var total: usize = 0;
 
-        for (self.items.items) |item| {
+        for (self.items) |item| {
             total += item;
         }
 
@@ -26,36 +32,31 @@ const Elf = struct {
 };
 
 pub const Stage1 = struct {
-    elves: std.ArrayList(Elf),
+    allocator: std.mem.Allocator,
+    elves: []Elf,
 
     pub fn init(allocator: std.mem.Allocator, input: *Input) !Stage1 {
         var elves = try std.ArrayList(Elf).initCapacity(allocator, input.len());
 
-        while (true) {
-            var res = input.next();
-            if (res == null) {
-                break;
-            }
-
-            var elf_data = res.?;
-            var elf = try Elf.init(&elf_data);
+        for (input.elves) |elf_data| {
+            var elf = try Elf.init(allocator, elf_data);
+            _ = elf.sum();
             try elves.append(elf);
         }
 
-        return Stage1{.elves = elves};
+        var owned = elves.toOwnedSlice();
+
+        return Stage1{
+            .allocator = allocator,
+            .elves = owned,
+        };
     }
 
-    pub fn answer(self: *Stage1) usize {
+    pub fn answer(self: Stage1) usize {
         var max: usize = 0;
 
-        while (true) {
-            var res = self.elves.popOrNull();
-            if (res == null) {
-                break;
-            }
-            var elf = res.?;
-
-            var sum = elf.sum();
+        for (self.elves) |elf| {
+            const sum = elf.sum();
             if (sum > max) {
                 max = sum;
             }
@@ -64,18 +65,12 @@ pub const Stage1 = struct {
         return max;
     }
 
-    pub fn deinit(self: *Stage1) void {
-        while (true) {
-            var res = self.elves.popOrNull();
-            if (res == null) {
-                break;
-            }
-
-            var elf = res.?;
+    pub fn deinit(self: Stage1) void {
+        for (self.elves) |elf| {
             elf.deinit();
         }
 
-        self.elves.deinit();
+        self.allocator.free(self.elves);
     }
 };
 
@@ -99,7 +94,8 @@ test "example 1" {
         \\
         \\10000
     );
-    var input = try Input.parseInput(test_allocator, br.reader());
+    var input = try Input.parse(test_allocator, br.reader());
+    defer input.deinit();
     var stage_1 = try Stage1.init(test_allocator, &input);
     defer stage_1.deinit();
 

@@ -15,12 +15,13 @@ pub fn main() !void {
     var out_stream = std.io.bufferedWriter(stdout_file);
     const stdout = out_stream.writer();
 
-    const input = try Input.parseInput(allocator, in_stream);
+    var input = try Input.parse(allocator, in_stream);
+    defer input.deinit();
 
-    const stage_1 = Stage1.init(input.copy());
-    const answer_1 = stage_1.answer();
+    var stage_1 = try Stage1.init(allocator, &input);
+    defer stage_1.deinit();
 
-    try stdout.print("stage 1: {d}", .{answer_1});
+    try stdout.print("stage 1: {d}\n", .{stage_1.answer()});
 
     try out_stream.flush();
 }
