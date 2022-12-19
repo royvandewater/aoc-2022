@@ -1,54 +1,21 @@
 const std = @import("std");
 const Input = @import("./input.zig").Input;
-
-const Elf = struct {
-    allocator: std.mem.Allocator,
-    items: []usize,
-
-    pub fn init(allocator: std.mem.Allocator, slice: []usize) !Elf {
-        var items = try allocator.alloc(usize, slice.len);
-
-        std.mem.copy(usize, items, slice);
-
-        return Elf {
-            .allocator = allocator,
-            .items = items,
-        };
-    }
-
-    pub fn deinit(self: Elf) void {
-        self.allocator.free(self.items);
-    }
-
-    pub fn sum(self: Elf) usize {
-        var total: usize = 0;
-
-        for (self.items) |item| {
-            total += item;
-        }
-
-        return total;
-    }
-};
+const Elf = @import("./elf.zig").Elf;
 
 pub const Stage1 = struct {
     allocator: std.mem.Allocator,
     elves: []Elf,
 
     pub fn init(allocator: std.mem.Allocator, input: *Input) !Stage1 {
-        var elves = try std.ArrayList(Elf).initCapacity(allocator, input.len());
+        var elves = try allocator.alloc(Elf, input.elves.len);
 
-        for (input.elves) |elf_data| {
-            var elf = try Elf.init(allocator, elf_data);
-            _ = elf.sum();
-            try elves.append(elf);
+        for (input.elves) |elf_data, i| {
+            elves[i] = try Elf.init(allocator, elf_data);
         }
-
-        var owned = elves.toOwnedSlice();
 
         return Stage1{
             .allocator = allocator,
-            .elves = owned,
+            .elves = elves,
         };
     }
 
@@ -56,9 +23,8 @@ pub const Stage1 = struct {
         var max: usize = 0;
 
         for (self.elves) |elf| {
-            const sum = elf.sum();
-            if (sum > max) {
-                max = sum;
+            if (elf.sum() > max) {
+                max = elf.sum();
             }
         }
 
@@ -66,9 +32,7 @@ pub const Stage1 = struct {
     }
 
     pub fn deinit(self: Stage1) void {
-        for (self.elves) |elf| {
-            elf.deinit();
-        }
+        for (self.elves) |elf| elf.deinit();
 
         self.allocator.free(self.elves);
     }

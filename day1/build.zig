@@ -37,8 +37,16 @@ pub fn build(b: *std.build.Builder) void {
     stage_1_tests.setTarget(target);
     stage_1_tests.setBuildMode(mode);
 
+    const stage_2_tests = b.addTest("src/stage_2.zig");
+    stage_2_tests.setTarget(target);
+    stage_2_tests.setBuildMode(mode);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);
     test_step.dependOn(&input_tests.step);
     test_step.dependOn(&stage_1_tests.step);
+    test_step.dependOn(&stage_2_tests.step);
+
+    const test_stage_2_step = b.step("test:stage_2", "Run stage 2 unit tests");
+    test_stage_2_step.dependOn(&stage_2_tests.step);
 }
