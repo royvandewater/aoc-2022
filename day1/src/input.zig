@@ -6,7 +6,7 @@ pub const Input = struct {
     allocator: std.mem.Allocator,
     elves: []Elf,
 
-    pub fn fromOwnedSlice(allocator: std.mem.Allocator, slice: []Elf) !Input {
+    pub fn fromSlice(allocator: std.mem.Allocator, slice: []Elf) !Input {
         var elves = std.ArrayList(Elf).init(allocator);
 
         for (slice) |chunk| {
@@ -110,17 +110,17 @@ test "parse two elves" {
     try expect(std.mem.eql(usize, elf_2, &[_]usize{4000}));
 }
 
-test "using fromOwnedSlice empty" {
-    var input = try Input.fromOwnedSlice(test_allocator, &[_]Elf{});
+test "using fromSlice empty" {
+    var input = try Input.fromSlice(test_allocator, &[_]Elf{});
     defer input.deinit();
 
     try expect(0 == input.len());
 }
 
-test "using fromOwnedSlice 1 elf" {
+test "using fromSlice 1 elf" {
     var input_elf = [_]usize{1};
 
-    var input = try Input.fromOwnedSlice(test_allocator, &[_]Elf{
+    var input = try Input.fromSlice(test_allocator, &[_]Elf{
         &input_elf,
     });
     defer input.deinit();
@@ -131,11 +131,11 @@ test "using fromOwnedSlice 1 elf" {
     try expect(std.mem.eql(usize, elf, &input_elf));
 }
 
-test "using fromOwnedSlice 2 elves" {
+test "using fromSlice 2 elves" {
     var input_elf_1 = [_]usize{1};
     var input_elf_2 = [_]usize{2, 3};
 
-    var input = try Input.fromOwnedSlice(test_allocator, &[_]Elf{
+    var input = try Input.fromSlice(test_allocator, &[_]Elf{
         &input_elf_1,
         &input_elf_2,
     });
