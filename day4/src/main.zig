@@ -61,19 +61,11 @@ fn totalRangeOverlap(range_1: Range, range_2: Range) bool {
 }
 
 fn partialRangeOverlap(range_1: Range, range_2: Range) bool {
-    if (totalRangeOverlap(range_1, range_2)) {
-        return true;
-    }
+    const total_range_overlap = totalRangeOverlap(range_1, range_2);
+    const range_1_overlaps_2 = range_2[0] <= range_1[0] and range_2[1] >= range_1[0];
+    const range_2_overlaps_1 = range_1[0] <= range_2[0] and range_1[1] >= range_2[0];
 
-    if (range_2[0] <= range_1[0] and range_2[1] >= range_1[0]) {
-        return true;
-    }
-
-    if (range_1[0] <= range_2[0] and range_1[1] >= range_2[0]) {
-        return true;
-    }
-
-    return false;
+    return total_range_overlap or range_1_overlaps_2 or range_2_overlaps_1;
 }
 
 fn parseRanges(line: []const u8) ![2]Range {
