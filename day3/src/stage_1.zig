@@ -4,7 +4,6 @@ const Rucksack = @import("./input.zig").Rucksack;
 
 const Allocator = std.mem.Allocator;
 
-
 pub const Stage1 = struct {
     allocator: Allocator,
     rucksacks: []Rucksack,
@@ -21,7 +20,6 @@ pub const Stage1 = struct {
     pub fn answer(self: Stage1) usize {
         var total: usize = 0;
 
-        std.debug.print("\n", .{});
         for (self.rucksacks) |rucksack| {
             const duplicate = findDuplicateLetter(rucksack);
             total += valueOf(duplicate);
