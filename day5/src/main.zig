@@ -19,15 +19,15 @@ pub fn main() !void {
     var input = try Input.fromReader(allocator, in_stream);
     defer input.deinit();
 
-    var stage_1 = try Stage1.init(allocator, &input);
+    var stage_1 = try Stage1.fromInput(allocator, &input);
     defer stage_1.deinit();
+    var stage_1_answer = try stage_1.answer();
+    defer allocator.free(stage_1_answer);
+    try stdout.print("stage 1: {s}\n", .{stage_1_answer});
 
-    try stdout.print("stage 1: {d}\n", .{stage_1.answer()});
-
-    // var stage_2 = try Stage2.init(allocator, &input);
-    // defer stage_2.deinit();
-
-    // try stdout.print("stage 2: {d}\n", .{stage_2.answer()});
+  // var stage_2 = try Stage2.init(allocator, &input);
+  // defer stage_2.deinit();
+  // try stdout.print("stage 2: {d}\n", .{stage_2.answer()});
 
     try out_stream.flush();
 }

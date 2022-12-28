@@ -61,6 +61,17 @@ pub const Input = struct {
             }
         }
 
+        var stacks_iter = stacks.iterator();
+        while (stacks_iter.next()) |entry| {
+            var old_stack = entry.value_ptr.*;
+            var new_stack = std.ArrayList(u8).init(allocator);
+            while (entry.value_ptr.*.popOrNull()) |crate| {
+                try new_stack.append(crate);
+            }
+            entry.value_ptr.* = new_stack;
+            old_stack.deinit();
+        }
+
         while (try reader.readUntilDelimiterOrEof(&buf, '\n')) |line| {
             if (line.len == 0) continue;
             try instructions.append(try Instruction.fromString(line));
@@ -72,23 +83,6 @@ pub const Input = struct {
             .instructions = try instructions.toOwnedSlice(),
         };
     }
-
-
-    // pub fn fromSlice(allocator: Allocator, slice: []Rucksack) !Input {
-    //     var rucksacks = try allocator.alloc(Rucksack, slice.len);
-
-    //     for (slice) |rucksack, i| {
-    //         rucksacks[i] = Rucksack{
-    //             try copy(allocator, rucksack[0]),
-    //             try copy(allocator, rucksack[1]),
-    //         };
-    //     }
-
-    //     return Input{
-    //         .allocator = allocator,
-    //         .rucksacks = rucksacks,
-    //     };
-    // }
 
     pub fn fromString(allocator: Allocator, str: []const u8) !Input {
         var br = std.io.fixedBufferStream(str);
@@ -127,6 +121,23 @@ test "fromReader one stack with one crate" {
     try expectEqual(@as(usize, 1), input.stacks.count());
     try expectEqual(@as(usize, 1), input.stacks.get(1).?.items.len);
     try expectEqual(@as(u8, 'A'), input.stacks.get(1).?.items[0]);
+}
+
+test "fromReader one stack with two crates" {
+    var br = std.io.fixedBufferStream(
+        \\[B]
+        \\[A]
+        \\ 1
+    );
+    var input = try Input.fromReader(test_allocator, br.reader());
+    defer input.deinit();
+
+    try expectEqual(@as(usize, 1), input.stacks.count());
+
+    var stack = input.stacks.get(1).?;
+    try expectEqual(@as(usize, 2), stack.items.len);
+    try expectEqual(@as(u8, 'B'), stack.pop());
+    try expectEqual(@as(u8, 'A'), stack.pop());
 }
 
 test "fromReader one stack with one instruction" {
