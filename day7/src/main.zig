@@ -9,27 +9,71 @@ pub fn main() !void {
     var bw = std.io.bufferedWriter(stdout_file);
     const stdout = bw.writer();
 
-    const file = try std.fs.cwd().openFile("./input.txt", .{});
-    defer file.close();
-    var buffered_reader = std.io.bufferedReader(file.reader());
-    try stdout.print("Stage 1: {d}\n", .{try sum_small_dirs(allocator, buffered_reader.reader())});
+    {
+        const file = try std.fs.cwd().openFile("./input.txt", .{});
+        defer file.close();
+        var buffered_reader = std.io.bufferedReader(file.reader());
+        try stdout.print("Stage 1: {d}\n", .{try sum_small_dirs(allocator, buffered_reader.reader())});
+    }
 
-    // const file2 = try std.fs.cwd().openFile("./input.txt", .{});
-    // defer file2.close();
-    // var buffered_reader2 = std.io.bufferedReader(file2.reader());
-    // try stdout.print("Stage 2: {any}\n", .{find_marker(allocator, buffered_reader2.reader(), 14)});
+    {
+        const file = try std.fs.cwd().openFile("./input.txt", .{});
+        defer file.close();
+        var buffered_reader = std.io.bufferedReader(file.reader());
+        try stdout.print("Stage 2: {d}\n", .{try smallest_big_enough_dir(allocator, buffered_reader.reader())});
+    }
 
     try bw.flush();
 }
 
 fn sum_small_dirs(allocator: Allocator, reader: anytype) !usize {
-    var map = std.StringArrayHashMap(usize).init(allocator);
+    var map = try dir_sizes(allocator, reader);
     defer {
         for (map.keys()) |key| {
             allocator.free(key);
         }
         map.deinit();
     }
+
+    var total: usize = 0;
+    var iterator = map.iterator();
+    while (iterator.next()) |entry| {
+        const size = entry.value_ptr.*;
+
+        if (size > 100000) continue;
+        total += size;
+    }
+    return total;
+}
+
+fn smallest_big_enough_dir(allocator: Allocator, reader: anytype) !usize {
+    var map = try dir_sizes(allocator, reader);
+    defer {
+        for (map.keys()) |key| {
+            allocator.free(key);
+        }
+        map.deinit();
+    }
+
+    var total: usize = map.get("/").?;
+
+    var free_space: usize = 70000000 - total;
+    var space_to_free: usize = 30000000 - free_space;
+
+    var best_size: usize = 70000000;
+    for (map.values()) |size| {
+        if (size >= space_to_free and size < best_size) {
+            best_size = size;
+        }
+    }
+
+    return best_size;
+}
+
+// fn dir_sizes(allocator: Allocator, reader: anytype) !std.array_hash_map.ArrayHashMap([]const u8, usize, std.array_hash_map.StringContext, true) {
+fn dir_sizes(allocator: Allocator, reader: anytype) !std.StringArrayHashMap(usize) {
+    // fn dir_sizes(allocator: Allocator, reader: anytype) !usize {
+    var map = std.StringArrayHashMap(usize).init(allocator);
 
     var buf = try allocator.alloc(u8, 32);
     defer allocator.free(buf);
@@ -70,7 +114,7 @@ fn sum_small_dirs(allocator: Allocator, reader: anytype) !usize {
         var current_dir_copy = try current_dir.clone();
         defer current_dir_copy.deinit(); // We don't need to clear each path piece because they're managed by "current_dir"
 
-        while (true)  {
+        while (true) {
             const pathname = try std.mem.join(allocator, "/", current_dir_copy.items);
             const entry = try map.getOrPutValue(pathname, 0);
             const dir_size = entry.value_ptr.* + file_size;
@@ -86,16 +130,7 @@ fn sum_small_dirs(allocator: Allocator, reader: anytype) !usize {
         }
     }
 
-
-    var total: usize = 0;
-    var iterator = map.iterator();
-    while (iterator.next()) |entry| {
-        const size = entry.value_ptr.*;
-
-        if (size > 100000) continue;
-        total += size;
-    }
-    return total;
+    return map;
 }
 
 // Copy the slice by value so it's underlying buffer can be re-used
@@ -221,4 +256,35 @@ test "sum_small_dirs example 1" {
 
     const result = try sum_small_dirs(test_allocator, br.reader());
     try std.testing.expectEqual(@as(usize, 95437), result);
+}
+
+test "smallest_big_enough_dir example 1" {
+    var br = std.io.fixedBufferStream(
+        \\$ cd /
+        \\$ ls
+        \\dir a
+        \\14848514 b.txt
+        \\8504156 c.dat
+        \\dir d
+        \\$ cd a
+        \\$ ls
+        \\dir e
+        \\29116 f
+        \\2557 g
+        \\62596 h.lst
+        \\$ cd e
+        \\$ ls
+        \\584 i
+        \\$ cd ..
+        \\$ cd ..
+        \\$ cd d
+        \\$ ls
+        \\4060174 j
+        \\8033020 d.log
+        \\5626152 d.ext
+        \\7214296 k
+    );
+
+    const result = try smallest_big_enough_dir(test_allocator, br.reader());
+    try std.testing.expectEqual(@as(usize, 24933642), result);
 }
