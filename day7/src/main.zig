@@ -19,15 +19,29 @@ pub fn main() !void {
     // var buffered_reader2 = std.io.bufferedReader(file2.reader());
     // try stdout.print("Stage 2: {any}\n", .{find_marker(allocator, buffered_reader2.reader(), 14)});
 
-    try bw.flush(); // don't forget to flush!
+    try bw.flush();
 }
 
 fn sum_small_dirs(allocator: Allocator, reader: anytype) !usize {
+    var map = std.StringArrayHashMap(usize).init(allocator);
+    defer {
+        for (map.keys()) |key| {
+            allocator.free(key);
+        }
+        map.deinit();
+    }
+
     var buf = try allocator.alloc(u8, 32);
     defer allocator.free(buf);
 
-    var current_dir_total: usize = 0;
-    var total: usize = 0;
+    var current_dir = std.ArrayList([]const u8).init(allocator);
+    defer {
+        while (current_dir.popOrNull()) |dir| {
+            allocator.free(dir);
+        }
+
+        current_dir.deinit();
+    }
 
     while (try reader.readUntilDelimiterOrEof(buf, '\n')) |line| {
         if (std.mem.startsWith(u8, line, "$")) {
@@ -36,19 +50,14 @@ fn sum_small_dirs(allocator: Allocator, reader: anytype) !usize {
                 continue;
             }
 
-            const destination = parse_destination(command);
-            if (std.mem.eql(u8, destination, "/")) {
+            var destination = parse_destination(command);
+
+            if (std.mem.eql(u8, destination, "..")) {
+                allocator.free(current_dir.pop());
                 continue;
             }
 
-            if (std.mem.eql(u8, destination, "..")) {
-                break;
-            }
-
-            const sub_dir_size = try sum_small_dirs(allocator, reader);
-
-            current_dir_total += sub_dir_size;
-            total += sub_dir_size;
+            try current_dir.append(try copy_slice_value(allocator, destination));
             continue;
         }
 
@@ -57,13 +66,43 @@ fn sum_small_dirs(allocator: Allocator, reader: anytype) !usize {
         }
 
         const file_size = try parse_file_size(line);
-        current_dir_total += file_size;
+
+        var current_dir_copy = try current_dir.clone();
+        defer current_dir_copy.deinit(); // We don't need to clear each path piece because they're managed by "current_dir"
+
+        while (true)  {
+            const pathname = try std.mem.join(allocator, "/", current_dir_copy.items);
+            const entry = try map.getOrPutValue(pathname, 0);
+            const dir_size = entry.value_ptr.* + file_size;
+            try map.put(pathname, dir_size);
+
+            // If we already had an existing entry, then the hashmap will use the string it already has
+            // instead of taking ownership of this one. That leaves us responsible for freeing it.
+            if (entry.found_existing) {
+                allocator.free(pathname);
+            }
+            _ = current_dir_copy.pop();
+            if (current_dir_copy.items.len == 0) break;
+        }
     }
 
-    if (current_dir_total <= 100000) {
-        total += current_dir_total;
+
+    var total: usize = 0;
+    var iterator = map.iterator();
+    while (iterator.next()) |entry| {
+        const size = entry.value_ptr.*;
+
+        if (size > 100000) continue;
+        total += size;
     }
     return total;
+}
+
+// Copy the slice by value so it's underlying buffer can be re-used
+fn copy_slice_value(allocator: Allocator, slice: []const u8) ![]const u8 {
+    var new_slice = try allocator.alloc(u8, slice.len);
+    std.mem.copy(u8, new_slice, slice);
+    return new_slice;
 }
 
 fn parse_file_size(line: []const u8) !usize {
@@ -71,10 +110,16 @@ fn parse_file_size(line: []const u8) !usize {
     return try std.fmt.parseUnsigned(usize, parts.first(), 10);
 }
 
+// Returns a pointer to the portion of the slice that contains the command. If you want
+// to use the return value for something that outlives the original slice, you'll need to
+// copy it using copy_slice_value.
 fn parse_command(line: []const u8) []const u8 {
     return std.mem.trimLeft(u8, line, "$ ");
 }
 
+// Returns a pointer of the portion of the slice that contains the destination. If you want
+// to use the return value for something that outlives the original slice, you'll need to
+// copy it using copy_slice_value.
 fn parse_destination(line: []const u8) []const u8 {
     return std.mem.trimLeft(u8, line, "cd ");
 }
